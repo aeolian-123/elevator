@@ -87,6 +87,12 @@ ol.board .empty{background:none;display:block;color:var(--mute);font-size:14px;t
 .snd{position:absolute;left:8px;bottom:8px;z-index:5;font:12px var(--zh);color:var(--cyan);background:rgba(10,9,32,.75);border:1px solid var(--line);padding:6px 8px;cursor:pointer}
 .snd[aria-pressed="false"]{color:var(--mute)}
 .snd:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.intro{text-align:center;gap:14px}
+.intro h2{margin:0;font:400 30px var(--zh);color:var(--gold);letter-spacing:.08em;text-shadow:3px 3px 0 var(--magenta)}
+.intro p{margin:0;font-size:17px;line-height:1.6;text-wrap:balance}
+.intro .lead{color:var(--cyan)}
+.intro hr{border:0;border-top:2px dashed var(--line);margin:2px 0;width:100%}
+.boardTitle{margin:0;font:400 22px var(--zh);color:var(--gold);text-shadow:2px 2px 0 var(--magenta)}
 .note{font-size:12px;color:var(--mute);margin:0;line-height:1.5}
 .blink{animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:.25}}
@@ -112,16 +118,15 @@ ol.board .empty{background:none;display:block;color:var(--mute);font-size:14px;t
     </div>
 
     <div class="ov clear" id="ovIntro" hidden>
-      <div class="card" style="margin-top:auto;margin-bottom:24px">
-        <p id="introText">沒有電梯，阿嬤只能自己爬樓梯，<span class="em">幫幫阿嬤！</span></p>
+      <div class="card intro" id="introCard">
+        <div id="introText"></div>
         <button class="btn" id="btnIntro">連按畫面，幫她上樓</button>
       </div>
     </div>
 
     <div class="ov" id="ovResult" hidden>
       <div class="card">
-        <div class="stat"><span>幫阿嬤下樓</span><b id="rHelp">0</b></div>
-        <div class="stat bad"><span>害阿嬤補爬</span><b id="rClimb">0</b></div>
+        <div class="stat"><span>幫老屋加裝電梯</span><b id="rHelp">0 棟</b></div>
         <div class="honor">老屋電梯大作戰<span class="no" id="rNo">第 ─ 號榮譽隊員</span></div>
         <p class="claim">有人說台北老宅延壽太慢了，但事實是：</p>
         <ul class="policy">
@@ -137,11 +142,8 @@ ol.board .empty{background:none;display:block;color:var(--mute);font-size:14px;t
 
     <div class="ov" id="ovBoard" hidden>
       <div class="card">
-        <div class="tabs" role="tablist">
-          <button class="tab" role="tab" id="tabThank" aria-selected="true">阿嬤感謝榜</button>
-          <button class="tab" role="tab" id="tabClimb" aria-selected="false">阿嬤還在爬榜</button>
-        </div>
-        <p class="note" id="boardDesc">單場幫最多阿嬤下樓的隊員</p>
+        <h2 class="boardTitle">阿嬤感謝榜</h2>
+        <p class="note" id="boardDesc">單場幫最多人加裝電梯</p>
         <ol class="board" id="board"></ol>
         <p class="note" id="boardSrc"></p>
         <button class="ghost" id="btnBoardClose">返回</button>
@@ -155,9 +157,10 @@ ol.board .empty{background:none;display:block;color:var(--mute);font-size:14px;t
 "use strict";
 // ---------- constants ----------
 const W = 390, H = 720;
-const GROUND = 612, FH = 62, FLOORS = 5;   // FLOORS = elevator segments the player stacks
-const BFL = 6;                               // building storeys; 1F of the shaft is a concrete base
-const BASE_Y = GROUND - FH;                  // top of the elevator base = where stacking starts
+const GROUND = 612, FH = 72, FLOORS = 5;   // FLOORS = elevator segments the player stacks
+const BFL = 5;                               // building storeys (one segment per storey)
+const BASE_H = 14;                           // thin concrete elevator base; buildings sit on a plinth of the same height
+const BASE_Y = GROUND - BASE_H;              // top of the base = where the shaft starts
 const BW = 150, SW = 84, GAP = 430;
 const PERFECT = 0.90, MISS = 0.6, TIP = 0.3;
 const GAME_TIME = 60, BEAR_AFTER = 20;
@@ -374,15 +377,15 @@ let lastRun = null;
 
 function bx(i){ return 40 + i*GAP; }               // building left
 function sx(i){ return bx(i) + BW + 8 + SW/2; }    // shaft center
-function floorY(f){ return GROUND - (f-1)*FH; }    // feet y of floor f (1..6)
-function segFor(b, f){ return f >= 2 ? b.segs[Math.min(b.segs.length-1, Math.round(f)-2)] : null; } // segment serving floor f
+function floorY(f){ return BASE_Y - (f-1)*FH; }    // feet y of floor f (1..5)
+function segFor(b, f){ return b.segs.length ? b.segs[Math.max(0, Math.min(b.segs.length-1, Math.round(f)-1))] : null; } // segment serving floor f
 function newBuilding(i){
-  return {segs:[], status:"open", k:0, kind: (kk => (kk.line = kk.lines[Math.floor(Math.random()*kk.lines.length)], kk))({...pickKind()}), lit:0, hue: Math.random()};
+  return {base:null, segs:[], status:"open", k:0, kind: (kk => (kk.line = kk.lines[Math.floor(Math.random()*kk.lines.length)], kk))({...pickKind()}), lit:0, hue: Math.random()};
 }
 function camFor(i){ return bx(i) + 122 - W/2; }
 
 // ---------- stack physics (visual sway) ----------
-function com(b){ if (!b.segs.length) return 0; return b.segs.reduce((a,s)=>a+s.x,0)/b.segs.length; }
+function com(b){ if (!b.segs.length) return 0; return b.segs.reduce((a,s)=>a+s.x,0)/b.segs.length - (b.base ? b.base.x : 0); }
 function swayAt(b, level, t){ // horizontal offset at given stack level (1..n)
   const n = b.segs.length;
   const amp = 2 + n*2.2 + Math.abs(com(b))*0.4;
@@ -390,7 +393,7 @@ function swayAt(b, level, t){ // horizontal offset at given stack level (1..n)
   if (bear.on) s += Math.sin(t*9) * 15 * (0.5 + level/FLOORS);
   return s;
 }
-function topX(b){ return b.segs.length ? b.segs[b.segs.length-1].x : 0; }
+function topX(b){ return b.segs.length ? b.segs[b.segs.length-1].x : (b.base ? b.base.x : 0); }
 
 // ---------- flow ----------
 function resetGame(){
@@ -419,10 +422,33 @@ function tap(){
 }
 function dropSeg(){
   const t = performance.now()/1000;
-  falling = {x: hangX(t), y: HANG_Y, vy: 60, bonus:false};
+  falling = {x: hangX(t), y: HANG_Y, vy: 60, bonus:false, base: !buildings[cur].base};
   hang = null; phase = "drop"; sfx.drop();
 }
+// a miss never ends the building: the piece falls away and the crane brings a new one
+function missed(msg, y){
+  sfx.fail(); shake = 8; flash = 0.2;
+  pops.push({text:msg, x:sx(cur), y, t:0, c:"#ff4a5a"});
+  hang = null; phase = "miss"; phaseT = 0;
+}
+function landBase(){
+  const b = buildings[cur];
+  let dx = falling.x - sx(cur);
+  const acc = 1 - Math.abs(dx)/SW;
+  if (acc < MISS){
+    junk.push({x:falling.x, y:BASE_Y, vx: dx>0?90:-90, vy:-120, rot:0, vr: dx>0?3:-3, base:true});
+    falling = null; missed("基座歪了！重放", BASE_Y - 50); return;
+  }
+  const perfect = acc >= PERFECT;
+  if (perfect) dx = 0;
+  b.base = {x: dx};
+  falling = null; shake = 3;
+  if (perfect){ sfx.perfect(); burst(sx(cur), BASE_Y, 20, true); pops.push({text:"PERFECT!", x:sx(cur), y:BASE_Y - 30, t:0, c:"#ffe45c", px:true}); }
+  else { sfx.land(); pops.push({text:"基座就位", x:sx(cur), y:BASE_Y - 30, t:0, c:"#f3f0ff"}); }
+  newHang(); phase = "swing";
+}
 function landSeg(){
+  if (falling.base){ landBase(); return; }
   const b = buildings[cur];
   const n = b.segs.length;
   const t = performance.now()/1000;
@@ -432,7 +458,7 @@ function landSeg(){
   const landY = BASE_Y - n*FH;
   if (acc < MISS && !falling.bonus){
     junk.push({x:falling.x, y:landY - FH, vx: dx>0?90:-90, vy:-120, rot:0, vr: dx>0?3:-3, ci:n});
-    falling = null; failBuilding("歪掉了！"); return;
+    falling = null; missed("歪掉了！重來", landY - FH - 30); return;
   }
   const perfect = falling.bonus || acc >= PERFECT;
   if (perfect && !falling.bonus) dx = 0;
@@ -459,7 +485,7 @@ function landSeg(){
   if (Math.abs(com(b)) > TIP*SW && b.segs.length > 1){
     const s = b.segs.pop();
     junk.push({x: sx(cur)+s.x, y: segY, vx: s.x>0?110:-110, vy:-80, rot:0, vr: s.x>0?2.5:-2.5, ci:b.segs.length});
-    failBuilding("失去平衡！"); return;
+    missed("失去平衡！重來", segY - 30); return;
   }
   if (b.segs.length >= FLOORS){ completeBuilding(); return; }
   if (perfect && !wasBonus){
@@ -467,16 +493,6 @@ function landSeg(){
     phase = "bonus"; return;
   }
   newHang(); phase = "swing";
-}
-function failBuilding(msg){
-  const b = buildings[cur];
-  b.k = b.segs.length; b.status = "partial";
-  sfx.fail(); shake = 8; flash = 0.25;
-  pops.push({text:msg, x:sx(cur), y: BASE_Y - b.k*FH - 40, t:0, c:"#ff4a5a"});
-  climbTarget = b.k + 1;   // the elevator (base + k segments) reaches floor k+1
-  climbTaps = 0; tapsPerFloor = TAPS_GAME;
-  grand.mode = "stairs"; grand.x = bx(cur) + BW - 30; grand.y = floorY(BFL);
-  phase = "climb"; phaseT = 0;
 }
 function completeBuilding(){
   const b = buildings[cur];
@@ -580,7 +596,7 @@ function buildingCanvas(i, done){
   const R = rng(i * 7919 + 13);
   const pal = FACADES[i % FACADES.length];
   const HH = BFL * FH, top = ROOF_H;
-  const c = document.createElement("canvas"); c.width = BW; c.height = HH + ROOF_H;
+  const c = document.createElement("canvas"); c.width = BW; c.height = HH + ROOF_H + BASE_H;
   const g = c.getContext("2d");
   const P = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
 
@@ -603,6 +619,9 @@ function buildingCanvas(i, done){
   }
   P(pal.hi, 0, top, 1, HH); P("rgba(0,0,0,.28)", BW - 3, top, 3, HH);
 
+  // plinth: raises the building to the height of the elevator base
+  P("#8a8578", 0, top + HH, BW, BASE_H); P("#a9a495", 0, top + HH, BW, 2); P("#6e6a5e", 0, top + HH + BASE_H - 2, BW, 2);
+  P("#9a9586", 112, top + HH + 2, 34, BASE_H - 4); P("#b5b0a1", 112, top + HH + 2, 34, 1); P("#b5b0a1", 112, top + HH + 7, 34, 1);
   const signCols = ["#e8323f", "#2b84ff", "#1fae6b", "#f0a020"];
   for (let f = 1; f <= BFL; f++){
     const yb = top + HH - (f - 1) * FH, yt = yb - FH;
@@ -629,7 +648,7 @@ function buildingCanvas(i, done){
     }
     const laundryWin = R() < 0.3 ? (R() < .5 ? 0 : 1) : -1;
     [10, 62].forEach((wx, w) => {
-      const wy = yt + 12, ww = 44, wh = 34;
+      const wy = yt + 14, ww = 44, wh = 38;
       const lit = done || R() < 0.35;
       P("#9aa0ae", wx - 1, wy - 1, ww + 2, wh + 2);
       if (lit){
@@ -659,7 +678,7 @@ function buildingCanvas(i, done){
 function drawBuilding(i, t){
   const b = buildings[i]; const x0 = bx(i);
   const done = b.status === "done";
-  const HH = BFL * FH, top = GROUND - HH;
+  const HH = BFL * FH, top = BASE_Y - HH;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   ctx.drawImage(buildingCanvas(i, done), x0, top - ROOF_H);
   ctx.restore();
@@ -698,7 +717,7 @@ function drawInstalled(i){
     // diagonal steel bracing
     for (let d = 0; d < SW - 12; d += 3) P("rgba(215,208,192,.35)", x + 6 + d, y + 7 + d * (FH - 12) / (SW - 12), 2, 2);
     ctx.fillStyle = "#f3f0ff"; ctx.font = `11px ${PX}`; ctx.textAlign = "right";
-    ctx.fillText((idx + 2) + "F", x + SW - 7, yb - 7);
+    ctx.fillText((idx + 1) + "F", x + SW - 7, yb - 7);
   }
   // machine room + sign on the top
   const ts = b.segs[k - 1], tcx = Math.round(sx(i) + ts.x), topY = BASE_Y - k * FH;
@@ -713,9 +732,9 @@ function drawInstalled(i){
 function drawShaftZone(i){
   const x = sx(i) - SW/2;
   ctx.save(); ctx.setLineDash([6,6]); ctx.strokeStyle = "rgba(63,241,255,.35)"; ctx.lineWidth = 1.5;
-  ctx.strokeRect(x, BASE_Y - FLOORS*FH, SW, FLOORS*FH);
+  ctx.strokeRect(x, BASE_Y - FLOORS*FH, SW, FLOORS*FH + BASE_H);
   ctx.restore();
-  ctx.fillStyle = "rgba(63,241,255,.06)"; ctx.fillRect(x, BASE_Y - FLOORS*FH, SW, FLOORS*FH);
+  ctx.fillStyle = "rgba(63,241,255,.06)"; ctx.fillRect(x, BASE_Y - FLOORS*FH, SW, FLOORS*FH + BASE_H);
 }
 
 function drawSeg(cx, yBottom, ci, alpha = 1, glow = false){
@@ -746,42 +765,44 @@ function shade(hex, amt){
   return `rgb(${Math.max(0,Math.min(255,r))},${Math.max(0,Math.min(255,g))},${Math.max(0,Math.min(255,b))})`;
 }
 
-// the concrete elevator base on 1F: poured before any shaft segment goes up
-function drawBase(i, installed){
+// thin concrete elevator base: the first piece the crane lowers on every building
+function drawSlab(cx, yBottom, alpha = 1, label = false){
   const P = (col, x, y, w, h) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
-  const x = Math.round(sx(i) - SW / 2), y = BASE_Y, h = GROUND - BASE_Y;
-  const edge = bx(i) + BW;
-  if (installed && x - edge > 0){ P("#b9b2a2", edge, y + 10, x - edge, h - 10); P("#8f887a", edge, y + 10, x - edge, 3); P("#1d1f2b", edge, y + 22, x - edge, h - 28); }
-  P("#8a8578", x, y, SW, h);
-  P("#a9a495", x, y, SW, 4); P("#a9a495", x, y, 2, h); P("#6e6a5e", x + SW - 3, y, 3, h);
-  for (let k = 0; k < 26; k++){ const px = x + 4 + (k * 37) % (SW - 8), py = y + 6 + (k * 23) % (h - 10); P(k % 3 ? "#7a766a" : "#9a9586", px, py, 2, 2); }
-  for (let yy = y + 20; yy < GROUND; yy += 20) P("#7a766a", x, yy, SW, 1);
-  if (installed){
-    P("#1d1f2b", x + 18, y + 14, SW - 36, h - 14); P("#d7d0c0", x + 16, y + 12, SW - 32, 2);
-    ctx.fillStyle = "#f3f0ff"; ctx.font = `11px ${PX}`; ctx.textAlign = "right"; ctx.fillText("1F", x + SW - 7, GROUND - 7);
-  } else {
-    for (let k = 0; k < 5; k++) P("#7a4a32", x + 8 + k * 17, y - 8, 2, 8);   // rebar waiting for the shaft
-    ctx.fillStyle = "#f3f0ff"; ctx.font = `11px ${ZH}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("電梯基座", x + SW / 2, y + h / 2 + 2); ctx.textBaseline = "alphabetic";
+  const x = Math.round(cx - SW / 2), y = Math.round(yBottom - BASE_H);
+  ctx.save(); ctx.globalAlpha = alpha;
+  P("#8a8578", x, y, SW, BASE_H); P("#a9a495", x, y, SW, 2); P("#6e6a5e", x, y + BASE_H - 2, SW, 2);
+  P("#6e6a5e", x + SW - 2, y, 2, BASE_H);
+  for (let k = 0; k < 10; k++) P(k % 3 ? "#7a766a" : "#9a9586", x + 4 + (k * 29) % (SW - 8), y + 4 + (k * 5) % (BASE_H - 6), 2, 2);
+  for (let k = 0; k < 4; k++) P("#3a3a44", x + 8 + k * 22, y - 3, 3, 3);   // anchor bolts for the shaft
+  if (label){ ctx.fillStyle = "#f3f0ff"; ctx.font = `11px ${ZH}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("電梯基座", cx, y + BASE_H / 2 + 1); ctx.textBaseline = "alphabetic"; }
+  ctx.restore();
+}
+function drawBase(i){
+  const b = buildings[i];
+  if (b.base){ drawSlab(sx(i) + b.base.x, GROUND); return; }
+  if (i === cur && state === "play"){ // ghost outline: where the base should go
+    const x = Math.round(sx(i) - SW / 2);
+    ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle = "rgba(255,228,92,.8)"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + .5, BASE_Y + .5, SW - 1, BASE_H - 1); ctx.restore();
   }
 }
 function drawStack(i, t){
   const b = buildings[i];
-  const installed = (b.status === "done" || b.status === "partial") && b.k >= 1;
-  drawBase(i, installed);
+  const installed = b.status === "done" && b.k >= 1;
+  drawBase(i);
   if (installed) drawInstalled(i);
   else b.segs.forEach((s, idx) => {
     const sway = (i === cur && state === "play") ? swayAt(b, idx+1, t) : 0;
     drawSeg(sx(i) + s.x + sway, BASE_Y - idx*FH, idx, 1, false);
   });
-  if (b.status === "done" || b.status === "partial"){
+  if (installed){
     // elevator car
-    let carF = b.k + 1;   // parked at the top stop
+    let carF = b.k;   // parked at the top stop
     if (i === cur && grand && (phase === "ride" || phase === "hop")) carF = grand.carF ?? carF;
     if (b.k >= 1){
       const top = segFor(b, carF);
       const cx = sx(i) + (top ? top.x : 0);
-      const yb = GROUND - (carF-1)*FH;
+      const yb = BASE_Y - (carF-1)*FH;
       ctx.save(); ctx.shadowColor = "#ffe45c"; ctx.shadowBlur = 16;
       ctx.fillStyle = "rgba(255,228,92,.85)"; ctx.fillRect(cx - 22, yb - FH + 14, 44, FH - 18);
       ctx.restore();
@@ -801,10 +822,12 @@ function drawCrane(t){
     ctx.strokeStyle = "#d8d4e8"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(hx, 58); ctx.lineTo(hx, HANG_Y - 12); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(hx, HANG_Y - 12); ctx.lineTo(hx - 24, HANG_Y - 8); ctx.moveTo(hx, HANG_Y - 12); ctx.lineTo(hx + 24, HANG_Y - 8); ctx.stroke();
-    drawSeg(hx, HANG_Y + FH, buildings[cur].segs.length);
+    const cb = buildings[cur];
+    if (!cb.base) drawSlab(hx, HANG_Y + BASE_H, 1, true); else drawSeg(hx, HANG_Y + FH, cb.segs.length);
     // aim guide
+    const gy0 = HANG_Y + (cb.base ? FH : BASE_H) + 4, gy1 = cb.base ? BASE_Y - cb.segs.length*FH - 10 : BASE_Y - 4;
     ctx.save(); ctx.setLineDash([3,6]); ctx.strokeStyle = "rgba(255,228,92,.35)";
-    ctx.beginPath(); ctx.moveTo(hx, HANG_Y + FH + 4); ctx.lineTo(hx, BASE_Y - buildings[cur].segs.length*FH - 10); ctx.stroke(); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(hx, gy0); ctx.lineTo(hx, gy1); ctx.stroke(); ctx.restore();
   } else {
     ctx.fillStyle = "#ffe45c"; ctx.fillRect(x - 12, 48, 24, 10);
   }
@@ -818,10 +841,10 @@ function drawGrand(t){
   let gx = grand.x, gy = grand.y;
   const bob = grand.bob ? -3 : 0;
   if (grand.mode === "window"){
-    gx = bx(cur) + 14; gy = floorY(BFL) - FH + 12;
+    gx = bx(cur) + 14; gy = floorY(BFL) - FH + 16;
     drawChar(name, gx, gy, "wave", Math.floor(performance.now()/260));
     // speech
-    if (phase === "swing" || phase === "drop" || phase === "bonus"){
+    if (phase === "swing" || phase === "drop" || phase === "bonus" || phase === "miss"){
       // small "!" marker ties the big ground caption to this character
       const by = gy - 22 + Math.sin(performance.now()/180)*2;
       ctx.fillStyle = "#ffe45c"; ctx.fillRect(gx + 7, by, 10, 16);
@@ -840,7 +863,7 @@ function drawGrand(t){
     const carF = grand.carF ?? grand.f;
     const top = segFor(b, carF);
     const cx = sx(cur) + (top ? top.x : 0);
-    drawChar(name, cx - sw/2, GROUND - (carF-1)*FH - sh - 4, "stand", 0);
+    drawChar(name, cx - sw/2, BASE_Y - (carF-1)*FH - sh - 4, "stand", 0);
     return;
   }
   if (grand.mode === "exit"){
@@ -876,16 +899,16 @@ function drawHUD(){
   ctx.textAlign = "center"; ctx.font = `13px ${ZH}`; ctx.fillStyle = "#a9a2d8";
   ctx.fillText(`第 ${cur+1} 棟`, W/2, 17);
   ctx.font = `11px ${PX}`; ctx.fillStyle = "#ffe45c";
-  const n = buildings[cur] ? buildings[cur].segs.length : 0;
-  ctx.fillText(`${n}/5F`, W/2, 34);
-  ctx.textAlign = "right"; ctx.font = `12px ${ZH}`; ctx.fillStyle = "#a9a2d8";
-  ctx.fillText("幫下樓", W - 46, 17); ctx.fillText("補爬", W - 46, 35);
-  ctx.font = `12px ${PX}`; ctx.fillStyle = "#ffe45c"; ctx.fillText(String(helped), W - 12, 18);
-  ctx.fillStyle = "#ff4fd8"; ctx.fillText(String(climbed), W - 12, 36);
+  const cbh = buildings[cur];
+  const n = cbh ? cbh.segs.length : 0;
+  ctx.fillText(cbh && !cbh.base ? "放基座" : `${n}/5F`, W/2, 34);
+  ctx.textAlign = "right"; ctx.font = `11px ${PX}`; ctx.fillStyle = "#3ff1ff";
+  ctx.fillText("完成", W - 12, 17);
+  ctx.font = `16px ${PX}`; ctx.fillStyle = "#ffe45c"; ctx.fillText(helped + " 棟", W - 12, 36);
   // timer bar
   ctx.fillStyle = "#3ff1ff"; ctx.fillRect(0, 42, W * Math.max(0,timeLeft)/GAME_TIME, 3);
   // bottom hint
-  const hint = phase === "climb" ? "連按畫面，幫她爬下樓！" : (phase === "swing" ? "點一下，放下電梯井" : "");
+  const hint = phase === "climb" ? "連按畫面，幫她爬下樓！" : (phase === "swing" ? (cbh && !cbh.base ? "點一下，放下電梯基座" : "點一下，放下電梯井") : "");
   if (hint){
     ctx.textAlign = "center"; ctx.font = `15px ${ZH}`;
     ctx.fillStyle = phase === "climb" ? "#ff4fd8" : "#f3f0ff";
@@ -917,7 +940,7 @@ function drawPopsAndParts(dt){
   ctx.globalAlpha = 1;
 }
 function drawLinePanel(){
-  if (!grand || grand.mode !== "window" || !(phase === "swing" || phase === "drop" || phase === "bonus")) return;
+  if (!grand || grand.mode !== "window" || !(phase === "swing" || phase === "drop" || phase === "bonus" || phase === "miss")) return;
   const now = performance.now()/1000;
   const txt = grand.line;
   ctx.font = `20px ${ZH}`;
@@ -1014,7 +1037,7 @@ function update(dt, t){
   // bear
   if (elapsed >= BEAR_AFTER){
     // the bear only bothers a shaft that is still being stacked
-    const building = buildings[cur].status === "open" && (phase === "swing" || phase === "drop" || phase === "bonus");
+    const building = buildings[cur].status === "open" && (phase === "swing" || phase === "drop" || phase === "bonus" || phase === "miss");
     if (!building && (bear.on || bear.warn > 0)){ bear.on = false; bear.warn = 0; bear.next = elapsed + 1.5 + Math.random()*2; }
     if (bear.on){ bear.t += dt; if (bear.t > 2.6){ bear.on = false; bear.next = elapsed + 3.5 + Math.random()*4; } }
     else if (bear.warn > 0){ bear.warn -= dt; if (bear.warn <= 0){ bear.warn = 0; bear.on = true; bear.t = 0; sfx.bear(); } }
@@ -1029,7 +1052,7 @@ function update(dt, t){
   const b = buildings[cur];
   if ((phase === "drop" || phase === "bonus") && falling){
     falling.vy += 2200*dt; falling.y += falling.vy*dt;
-    const landTop = BASE_Y - (b.segs.length+1)*FH;
+    const landTop = falling.base ? BASE_Y : BASE_Y - (b.segs.length+1)*FH;
     if (falling.y >= landTop){ falling.y = landTop; landSeg(); }
   } else if (phase === "hop"){
     // walk into car at current floor
@@ -1043,7 +1066,9 @@ function update(dt, t){
   } else if (phase === "exit"){
     if (grand.mode !== "exit"){ grand.mode = "exit"; grand.x = bx(cur) + BW - 36; }
     grand.x += 150*dt;
-    if (phaseT > 0.55){ pops.push({text:"阿嬤 +1", x:grand.x, y:GROUND - 70, t:0, c:"#ffe45c"}); nextBuilding(); }
+    if (phaseT > 0.55){ pops.push({text:"+1 棟", x:grand.x, y:GROUND - 70, t:0, c:"#ffe45c"}); nextBuilding(); }
+  } else if (phase === "miss"){
+    if (phaseT > 0.5){ newHang(); phase = "swing"; }
   } else if (phase === "pan"){
     if (phaseT > 0.55){ startBuilding(); }
   }
@@ -1072,8 +1097,8 @@ function render(dt, t){
   }
   if (state === "play" || state === "intro" || state === "introDone"){
     if (state === "play") drawCrane(t);
-    if (falling) drawSeg(falling.x, falling.y + FH, buildings[cur].segs.length, 1, falling.bonus);
-    junk.forEach(j => { ctx.save(); ctx.translate(j.x, j.y); ctx.rotate(j.rot); drawSeg(0, FH/2, j.ci, .9); ctx.restore(); });
+    if (falling){ if (falling.base) drawSlab(falling.x, falling.y + BASE_H, 1, true); else drawSeg(falling.x, falling.y + FH, buildings[cur].segs.length, 1, falling.bonus); }
+    junk.forEach(j => { ctx.save(); ctx.translate(j.x, j.y); ctx.rotate(j.rot); if (j.base) drawSlab(0, BASE_H/2, .9); else drawSeg(0, FH/2, j.ci, .9); ctx.restore(); });
     if (state === "intro") drawIntroGrand();
     else drawGrand(t);
     drawBear(t);
@@ -1109,7 +1134,7 @@ function beginIntro(){
   state = "intro"; introLive = false;
   grand = {kind:"grandma", f:1, x:0, y:floorY(1), mode:"stairs"};
   climbTaps = 0;
-  $("introText").innerHTML = '沒有電梯，阿嬤只能自己爬樓梯，<span class="em">幫幫阿嬤！</span>';
+  $("introText").innerHTML = '<h2>幫幫阿嬤</h2><p>沒有電梯<br>阿嬤只能自己爬樓梯！</p>';
   $("btnIntro").textContent = "連按畫面，幫她上樓";
   $("btnIntro").onclick = () => { $("ovIntro").hidden = true; introLive = true; };
   $("ovIntro").hidden = false;
@@ -1117,8 +1142,8 @@ function beginIntro(){
 function introFinished(){
   introLive = false; state = "introDone"; sfx.done();
   LS.set("elev.tutorial", true);
-  $("introText").innerHTML = '手好痠吧？阿嬤每天都這樣爬。<br><span class="em">市府補助加裝電梯</span>，阿嬤就能輕鬆上下樓！<br>60 秒內，幫越多阿嬤越好。';
-  $("btnIntro").textContent = "開始施工";
+  $("introText").innerHTML = '<p class="lead">手好痠吧？阿嬤每天都這樣爬！</p><p><span class="em">市府補助加裝電梯</span>，阿嬤就能輕鬆上下樓！</p><hr><p>60 秒內，幫老屋加裝電梯<br>幫助越多人越好！</p>';
+  $("btnIntro").textContent = "開始加裝";
   $("btnIntro").onclick = () => { $("ovIntro").hidden = true; beginPlay(false); };
   $("ovIntro").hidden = false;
 }
@@ -1141,7 +1166,7 @@ function endGame(){
   camTS = Math.min(1, W / (span + 20));
   camTX = (bx(0) - 20 + span/2) - W/2;
   sfx.fail();
-  lastRun = {nick, helped, climbed, at: Date.now()};
+  lastRun = {nick, helped, at: Date.now()};
   setTimeout(showResult, 2600);
   submitScore(lastRun);
 }
@@ -1152,30 +1177,28 @@ function drawOverviewCaption(){
   ctx.textAlign = "center"; ctx.font = `12px ${PX}`; ctx.fillStyle = "#ffe45c";
   ctx.fillText("TIME UP!", W/2, 96);
   ctx.font = `15px ${ZH}`; ctx.fillStyle = "#f3f0ff";
-  ctx.fillText(`電梯完工 ${done} 棟　沒裝好 ${part} 棟`, W/2, 124);
+  ctx.fillText(part ? `電梯完工 ${done} 棟　施工中 ${part} 棟` : `電梯完工 ${done} 棟`, W/2, 124);
 }
 function showResult(){
   state = "result";
-  $("rHelp").textContent = lastRun.helped;
-  $("rClimb").textContent = lastRun.climbed;
+  $("rHelp").textContent = lastRun.helped + " 棟";
   $("ovResult").hidden = false;
   $("btnAgain").focus();
 }
 
 // ---------- leaderboard (shared db, local fallback) ----------
 let db = null, uid = null, myNo = null;
-let boardData = {best: [], climbs: []}, boardMode = "best", boardShared = false;
+let boardData = {best: []}, boardMode = "best", boardShared = false;
 function localRuns(){ return LS.get("elev.runs", []); }
 function setLocalBoard(){
   const runs = localRuns();
   const byNick = {};
   runs.forEach(r => {
-    const e = byNick[r.nick] || (byNick[r.nick] = {nick:r.nick, best:0, climbs:0});
-    e.best = Math.max(e.best, r.helped); e.climbs += r.climbed;
+    const e = byNick[r.nick] || (byNick[r.nick] = {nick:r.nick, best:0});
+    e.best = Math.max(e.best, r.helped || 0);
   });
   const arr = Object.values(byNick);
   boardData.best = [...arr].sort((a,b)=>b.best-a.best).slice(0,10);
-  boardData.climbs = [...arr].sort((a,b)=>b.climbs-a.climbs).slice(0,10);
 }
 async function initDb(){
   setLocalBoard();
@@ -1190,7 +1213,7 @@ async function initDb(){
       boardData[field] = snap.docs.map(s => ({id: s.id, ...s.data()}));
       renderBoard();
     }, () => {});
-    subscribe("best"); subscribe("climbs");
+    subscribe("best");
     if (uid){
       const me = await db.doc("scores/" + uid).get();
       if (me.exists) myNo = me.data().no || null;
@@ -1214,7 +1237,6 @@ async function submitScore(run){
       await ref.set({
         nick: run.nick, no,
         best: Math.max(prev ? prev.best || 0 : 0, run.helped),
-        climbs: (prev ? prev.climbs || 0 : 0) + run.climbed,
         plays: (prev ? prev.plays || 0 : 0) + 1,
         updatedAt: new Date().toISOString()
       });
@@ -1227,7 +1249,6 @@ async function submitScore(run){
 function renderBoard(){
   const ol = $("board"); ol.textContent = "";
   const list = boardData[boardMode];
-  $("boardDesc").textContent = boardMode === "best" ? "單場幫最多阿嬤下樓的隊員" : "累計害阿嬤補爬最多層的隊員";
   $("boardSrc").textContent = boardShared ? "全體隊員即時排名" : "本機紀錄（目前無法連線共享排行榜）";
   if (!list.length){
     const li = document.createElement("li"); li.className = "empty";
@@ -1239,7 +1260,7 @@ function renderBoard(){
     const r = document.createElement("span"); r.className = "r"; r.textContent = String(i+1).padStart(2,"0");
     const n = document.createElement("span"); n.className = "n"; n.textContent = e.nick || "無名隊員";
     const v = document.createElement("span"); v.className = "v";
-    v.textContent = boardMode === "best" ? `${e.best||0}人` : `${e.climbs||0}層`;
+    v.textContent = `${e.best||0}棟`;
     li.append(r, n, v); ol.appendChild(li);
   });
 }
@@ -1248,12 +1269,6 @@ function openBoard(from){
   $("ovBoard").hidden = false; $(from).hidden = true; renderBoard();
 }
 let boardFrom = "ovTitle";
-function setTab(mode){
-  boardMode = mode;
-  $("tabThank").setAttribute("aria-selected", mode === "best");
-  $("tabClimb").setAttribute("aria-selected", mode === "climbs");
-  renderBoard();
-}
 
 // ---------- UI wiring ----------
 $("nick").value = nick;
@@ -1272,8 +1287,7 @@ setMuted(muted); bgm.pause();
 $("btnBoardT").onclick = () => openBoard("ovTitle");
 $("btnBoardR").onclick = () => openBoard("ovResult");
 $("btnBoardClose").onclick = () => { $("ovBoard").hidden = true; $(boardFrom).hidden = false; };
-$("tabThank").onclick = () => setTab("best");
-$("tabClimb").onclick = () => setTab("climbs");
+
 
 cv.addEventListener("pointerdown", e => { e.preventDefault(); if (state === "intro" && !introLive) return; tap(); });
 // one tap per key press: holding a key (auto-repeat) does nothing until it is released
