@@ -1047,8 +1047,7 @@ $("btnStart").onclick = () => {
   nick = v; LS.set("elev.nick", v); $("nickErr").textContent = "";
   $("ovTitle").hidden = true;
   beep(660,.08);
-  if (LS.get("elev.tutorial", false)) beginPlay(true);
-  else beginIntro();
+  beginIntro(); // every start from the title screen opens with the climb; "再玩一次" skips it
 };
 $("nick").addEventListener("keydown", e => { if (e.key === "Enter") $("btnStart").click(); });
 $("btnAgain").onclick = () => { $("ovResult").hidden = true; beginPlay(true); };
@@ -1059,12 +1058,19 @@ $("tabThank").onclick = () => setTab("best");
 $("tabClimb").onclick = () => setTab("climbs");
 
 cv.addEventListener("pointerdown", e => { e.preventDefault(); if (state === "intro" && !introLive) return; tap(); });
+// one tap per key press: holding a key (auto-repeat) does nothing until it is released
+const held = new Set();
 window.addEventListener("keydown", e => {
   if ((e.code === "Space" || e.code === "Enter") && (state === "play" || (state === "intro" && introLive))){
     if (document.activeElement && document.activeElement.tagName === "INPUT") return;
-    e.preventDefault(); tap();
+    e.preventDefault();
+    if (e.repeat || held.has(e.code)) return;
+    held.add(e.code);
+    tap();
   }
 });
+window.addEventListener("keyup", e => held.delete(e.code));
+window.addEventListener("blur", () => held.clear());
 
 // title scene: show an idle building
 resetGame();
