@@ -290,6 +290,29 @@ function drawSprite(name, x, y, px = 3, flip = false, wave = false){
     ctx.fillRect(Math.round(x + (w-1)*px + px), Math.round(y + (up ? 2 : 4)*px), px, px*2);
   }
 }
+// ---------- custom character art (PNG, 1:1 logical pixels) ----------
+const ART_SRC = {
+  grandma: {
+    walk: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAkCAYAAACTz/ouAAAACXBIWXMAAAsSAAALEgHS3X78AAADeElEQVRIicWWb2xTZRTGf+/tOiOSdeB2NeMDGhbnLbdblxm2CCGQSKIkJsAX/kTUTBCcxEAgujhQlDk1GTWhHxRJgAQjC0IABUOEOFncEshq2EpnVrssGNLAdE7qlOjSHj/ctusNXVaUrc+Xe9/3Pe9zznnuOScXphgqF6NqvUgA/J+fBASAc1+fo9nXOul97f9ElwsmjKBSLxaALU3v4nYbAIRCfSjNisk057Nl7SoANjXtZtNrW7NyZd306i5p2PleksjgajBkGSswPR4Agj1B0KzrbuNxGtasBKB3eNTGOb0S1czRBaDZv5/RP0cB+H3kFrFYDIDhoSEeKZ8HQNvB/eh6KQBLnlmBxOMAHPC18EP01zSvzcHWlzcLgLvSRLOKhX3Nb1JS4QWgqsKg48s2AC6daUHF/wFg6Qt+zLolACxavIh1L9WneadcooLMRXV1lbXpdLK3aTsA3Sfe4fXdhwBo3VgFGysBeGtPG283rgag/bM3ON3/AAAX2y/aHNgk+nSfXwD6+37kw7o/rE1jAUpZiYoISiWviEKbWQxAYnSED07fAKCpZc/0VpHNQV8wRF8wxIXjR8CoA6OO2md3IiKICKAQNASNuQsbSMSGScSGGTt0mUbzOo3m9Tsc2L7Bd6eOAhA4vxfHjCIALr24Nq3jilW7cCYluva9HznWA4Dz+SdYsHLX5BlMBbKPioeK5e+xMQCunn0fSc4fpTn4ZNsBADb76pGE1SwqEsDx3OHcZ1EmjOKZUpgU8uwrtTgSVsdKXFh+8AoAXcuXMePw8axc+RvXXt0lAEfKy5n94GwAbo78RrVvAwB/ffwtSiyJBsKDrI9EALgydMvGaVtkks577NHxg4T1KKxxEzjfCYDpcqGc4wIMhAcBWB+J2JxMb6OlYHxUz0B4kIHwIOvOfANKA6Ux1hvGUzILT8kstPsKbdF7ugLK0xVQ3V+12LhsjZZ56OkKKIDeJ2sEh5WxxBNoqbkUj+f0y5C/KkrBLC2S7qeXASAFDqLXogCUzZ2DiNUTKYn+k4P7Fy6WXCK93dmRn0YrmNwESsvK0u+/RKNZ93+e4O5dZ3C7s0NNJMc9cXC3yEmibKj4qYdu3+pxoi/astpNmqpXd0lmAxbUvqoAdiytSFfXhdCNO4ZcCvlvNK/ukqfmP5xet7b35/yBIV/T9F7iXzdXHtp2RcpRAAAAAElFTkSuQmCC", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAkCAYAAACTz/ouAAAACXBIWXMAAAsSAAALEgHS3X78AAADcklEQVRIic2WUWxTZRTHf9/tOiKSdeB2MeMBDYvjltutywxbhBBIJFESE+AFIaJkgOAgBqPRhYGgzKnJqAl9UCQBEowuClEUCBHiZHFLMKthKx1Z7bJgSIPTOSlDokt7eLhd1xu7tFO3eV7u/c73nf//nP/9zsmFSTaVy6FKvUAA/B9/DggA58+dp9HXnDVe+zfZ5WLjZlCuFwrAzoY3cbsNAEKhHpRm5WSai9i5fi0A2xr2s+3FXRmxMjq9ukvq9ryVBDK4GgxZhxWYHg8Awa4gaFa421hI3dNrAOgeHLZhTq1EVfN0AWj0H2b4zjAAvw/dIhaLATA4MMBDpQsAaDl6GF0vBmD5k6uReByAI74mfoj+msK1Eex6frsAuMtNNOuycKhxN0VlXgAqygzavmwB4PKZJlT8LwBWPOfHrFkOwNJlS9mwuTaFO+kS5aUvKisrLKfTycGGlwHoPPUGr+4/BkDz1grYWg7A6wda2Fe/DoDWj17jdO/9AFxqvWQjsEn04SG/APT2XOPdmtuW01iMUlahIoJSyRBRaLMKAUgMD/HO6ZsANDQdmNpbZCPoCYboCYa4ePIEGDVg1FD91B5EBBEBFIKGoDF/SR2J2CCJ2CAjx76n3rxBvXnjbwS2b/DtF58AELhwEMfMAgAub1qf0nH12r04kxJd/86PfNoFgPPZR1m8Zm/2CibDMo+KuYXy58gIAFfPvo0k54/SHHzw0hEAtvtqkYTVLCoSwPHM8dxnUboZhbMkPynk2ReqcSSsjpW4sOroFQA6Vq1k5vGTGbGmb1x7dZcAnCgtZc4DcwD4eeg3Kn1bAPjj/W9QYknUF+5nYyQCwJWBWzZM2yIddMEjD49tJKxHfpWbwIV2AEyXC+UcE6Av3A/AxkjERjK1jTZqxnu19IX76Qv3s+HM16A0UBoj3WE8RbPxFM1Gm5Fvy97TEVCejoDq/KrJhmVrtPRNT0dAAXQ/ViU4rIolnkAbnUvxeE6/DNN3i0bNLC6QzidWAiB5DqLXowCUzJ+HiNUToxL9I4L7liyTXDK92942PY2Wl/0IFJeUpN5/iUYz+n8aJ3bCFdxtb1PjyfGfEEzUskpU9mMXnb51YwGftUyIIGupr6woS92ii6GbqTnj1V2S3ph51Tv+Z+M6m3l1lzy+6MHUurm1d3oqmHSCe5PfHtrSctMyAAAAAElFTkSuQmCC"],
+    wave: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAkCAYAAACTz/ouAAAACXBIWXMAAAsSAAALEgHS3X78AAAEGUlEQVRIie2Wf0yUdRzHX9/nfqCF/ArPwjZMDTo6OAgLlqxszaZ/0JQ/Klrrh6Uos2ZrKxZSRki1CWuxhc5N2mrJWFYWhMsm4XSOG9C4g0sUXQzH4s4TOCE87u759sdzMC5+tRnwT+/t2Z7n++v9+by/3/fn+8D/mAdirs4MU5QEqPr6O0ACcOqnU5RVHppz3lQotxPdv8G0SNJMMRJgb3EpKSlmALq6nAhFi8VieZC9+XkAFBQfoOCNfXNmE9aZboqWhfsPhhYy0+no0gYJsKSmAuDocICiTUsxP0Dhc9sBsHtGZiRaHIkyV5skQFnVEUZGRwAYGhzG6/UC4HG5WLN+HQC1x45gMq0EYNPWbchgEICjleW091+floUA2LdrtwRISbOgaIeFz8reJT45HQBrspmzP9QC0FJfjgiOA/DES1VYsjcBkPNYDs+/umMawYJLpAfIyLBqHwYDFcVvAdB64gPePlADwKGdVtiZBsB7H9byftGzADR99Q4nu+8EoLmpeXYCnz8AgL3Dge2Tp7Ueg56K8gIApFQRQsu+tDgfJTIGAHVkkN+d3doYEa6ONWTSBZdIAXA6unA6uvjlmy/BnA3mbLJy9yOlREoJCCQKEoXEjYWoXg+q14O/xkaR5RpFlmvYGk8QsFXLgK1aAnS4vKLD5RV6gF+/Pw5A2+kKdHdEAdDycv6kC7fllWAISdB7rgpZ1wGA4cUNPLK9BABb/cfIXvvMGSwkwkvFqhjp8/sB6Gz4CBmqP0LRcfjNowDsrtyBVDWziJ42dC98IQCCLZ9LXVbhzEabCeaYSGnUa+8Ne7LQqZpjZVCSd+w3AJpyt/LoyUYAWhsOost6fYmMNhXWuBUS4ELuFgZvDAEw0HSDjMrXAPir+gyrQnF2d3ZTk3Q/ANJ5YUaCsJRy7o6RPz/1JABXev5g3fr7ADBmptB2+jwAluhoRLTm3oePf0uEXhOh3X1zacp1GMFoUAW9HvR6Si5dBqGAUPDbL5EaH0tqfCxKhBHGfDDmoy7VQrv7ppgtevjHHgRUiXHX4wCUXuwBnTZPBlUUoYTeg0RYkwBQu6+yYWW0BGh1Dy/hjTaBsfPVUn/xLAAZRQ20btkMgNTr6O/tByAhcfXkeN3oKMa6+jkv/TCJlm/cIyb+Kq4kpZM8vhwAV08ffpdLW9SnQxiMAChqYN4MFt9odteQAEiK65e3EhIAiL/3HuIutwMw+FDm5OUSe+ZHptfPcMyaQaTHjUDbpIHePqQQ2iPVyXb79dmP57wE/xWmSTSBdvewSPTdkgDLguPY3V4BsEZR5MCfA7dPsDZymXxm1AlA8lojr7Rp7UWBNq7qNWUa74qSDo93TpkWtxZNRU5yPAFVEFAFnzb3TbYfPjdAIKgSCKpYE1fMS/A3Q7dwE3VHuRAAAAAASUVORK5CYII=", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAkCAYAAACTz/ouAAAACXBIWXMAAAsSAAALEgHS3X78AAAEB0lEQVRIie2Wf0yVZRTHP897r9eiBCQukrs4siS6jsuPLkzKXKtNrCictrlcq2bm1KU1VhvXNSaDJUGtNQc1a21tZS2miMXmhrkCtQCRH2GDi2E6kcuPBFGJC7zv0x/PyxVCwM3E/uh7/3ne9znP+Z7zPe85z4X/cbshptt02UMkQNHefWiaMq3+uYbMdzzTnhsP6z9fxEcop9uyd/FgbAwAp5pPoQnlM3V5asBm3YZN7MgvnJZswmZi5Hy5xZMDQJwrjqbGJmUkBK4EV4BMGhIApzOWN156AYDajp7rEmk3lOdNQAAkOxZIgF2ffM7F/j4ABvr6QVeRdnScZ+GiKABKvvgMx8J7AXh0VQa6fwiA4oJcGjr/nJSFANi+YaMEcLpcaCinH+R4cMQlA7D0gSUcLS8BoKYsFyFHAHitsIr5kQ4AnA/F8uq21ycR3HKJrAApy1LUg3UOBZ43AWg+9D6lZVUArF2dgNycCEBWzjfk71gDwJ63Hqes3Q5AVWXV1ASDg38B4G2pp7bgWXNLsibjMXN17XN7L3s92GzqYXgIr7cNAF3XA04T7CGyoeeSgNmSqPnXZgAqv/sW+UoeAEnPeKgvz1dW0gDNAoDzye38dvhDAIy9dWS6VW4eny3gtK78XUZbGySYmY915omDOViDgtThL0/C2jgAnns+G4tuALC/NBe+rgdArHORsjpbOe26JPw1e6SKeoTkp7OA2ZKosVsVJCVjp7SZM+f4gVzM+cbBfXkUZX6qokYg1ycBoDcepa5Lnc0ID5YWQ/WHOz2L+t7LQtlPgeTIEDkyqmSp2OpmbK1pgieKTwBQnZ6GxayNNAyWH6oAoN4MGGZLovFICp8nAX5KW0lLazsA5w73k/DRJgD8RT8QNHgVgGH/ML4LPgBebvVOiHwME16k2kPkkfQ0AE57fydmxTIALMHzOFZZA4A7IgzNomRJPPA9LRevTnsf3HKJJhCMBuou2NnahtHZi9HZy3DbGdz2MNz2MIQQSF1H6jolTueMBBNqMGQY2LasACCv/SzSpJcIrLY5gJo5c+PVVYr3DCn2UAlQ09N/G2+0MQwdL5bWtl8AePjtUqqfWgWAoWmc9Z4GIHrJYoTZjNrwKLav9k9b5AkS3fHIVhEfoVJuuS+emEElS1dHB6O+y+aBbjC/ImHozITZb7TGblWs6NRwaUgV4YIoB6HekwD0JSUhNBVX6I/lNM1AMGUGdx87Elj7/jgXWEskwvw1Xadzb5jg38IkicbQ3DsgFpt/4e7U/TSZ4zdKN6TvwvmbJ1h5/z0yoU8pHBM9l41qQlP7YgyFuxsAqLAHy6aegf/QLBqPReF3ccU/whX/CB9XXSvyys270YRAE4KljuAZCf4G5uZsp72K4v4AAAAASUVORK5CYII="]
+  }
+};
+const ART = {};
+for (const k in ART_SRC){
+  ART[k] = {};
+  for (const pose in ART_SRC[k]) ART[k][pose] = ART_SRC[k][pose].map(src => { const im = new Image(); im.src = src; return im; });
+}
+function artReady(name, pose){ const a = ART[name] && ART[name][pose]; return a && a.every(im => im.complete && im.naturalWidth); }
+// pose: wave | walk | stand | exit ; frame picks the image within the pose
+function drawChar(name, x, y, pose, frame = 0, flip = false){
+  const p = pose === "wave" ? "wave" : "walk";
+  if (!artReady(name, p)){ drawSprite(name, x, y, 3, flip, pose === "wave"); return; }
+  const im = ART[name][p][((frame % 2) + 2) % 2];
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  if (flip){ ctx.translate(Math.round(x) + im.naturalWidth, Math.round(y)); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0); }
+  else ctx.drawImage(im, Math.round(x), Math.round(y));
+  ctx.restore();
+}
 const spriteW = (n, px=3) => SPR[n][0].length * px;
 const spriteH = (n, px=3) => SPR[n].length * px;
 
@@ -429,6 +452,7 @@ function climbStep(){
   const target = state === "intro" ? 1 : climbTarget;
   if (grand.f <= target) return;
   climbTaps++; sfx.step();
+  grand.step = (grand.step || 0) + 1;
   grand.bob = 1;
   const per = state === "intro" ? TAPS_INTRO : tapsPerFloor;
   if (climbTaps >= per){
@@ -636,7 +660,7 @@ function drawGrand(t){
   const bob = grand.bob ? -3 : 0;
   if (grand.mode === "window"){
     gx = bx(cur) + 14; gy = floorY(5) - FH + 18;
-    drawSprite(name, gx, gy, 3, false, true);
+    drawChar(name, gx, gy, "wave", Math.floor(performance.now()/260));
     // speech
     if (phase === "swing" || phase === "drop" || phase === "bonus"){
       ctx.font = `12px ${ZH}`; ctx.textAlign = "left";
@@ -651,7 +675,7 @@ function drawGrand(t){
   if (grand.mode === "stairs"){
     const targetY = floorY(grand.f);
     grand.y += (targetY - grand.y) * 0.25;
-    drawSprite(name, bx(cur) + BW - 36 + (grand.f % 2 ? 0 : 4), grand.y - sh + bob, 3, grand.f % 2 === 0);
+    drawChar(name, bx(cur) + BW - 36 + (grand.f % 2 ? 0 : 4), grand.y - sh + bob, "walk", grand.step || 0, grand.f % 2 === 0);
     grand.bob = 0;
     return;
   }
@@ -659,11 +683,11 @@ function drawGrand(t){
     const carF = grand.carF ?? grand.f;
     const top = b.segs[Math.max(0, Math.min(b.segs.length-1, Math.round(carF)-1))];
     const cx = sx(cur) + (top ? top.x : 0);
-    drawSprite(name, cx - sw/2, GROUND - (carF-1)*FH - sh - 4, 3);
+    drawChar(name, cx - sw/2, GROUND - (carF-1)*FH - sh - 4, "stand", 0);
     return;
   }
   if (grand.mode === "exit"){
-    drawSprite(name, grand.x, GROUND - sh, 3);
+    drawChar(name, grand.x, GROUND - sh, "exit", Math.floor(grand.x/10));
     // basket
     ctx.fillStyle = "#b37a3a"; ctx.fillRect(grand.x + sw - 2, GROUND - sh/2, 10, 8);
     ctx.fillStyle = "#4fd36b"; ctx.fillRect(grand.x + sw, GROUND - sh/2 - 4, 6, 4);
@@ -851,7 +875,7 @@ function drawIntroGrand(){
   const name = grand.kind, sh = spriteH(name);
   const targetY = floorY(grand.f);
   grand.y += (targetY - grand.y)*0.25;
-  drawSprite(name, bx(0) + BW - 36 + (grand.f % 2 ? 0 : 4), grand.y - sh + (grand.bob ? -3 : 0), 3, grand.f % 2 === 0);
+  drawChar(name, bx(0) + BW - 36 + (grand.f % 2 ? 0 : 4), grand.y - sh + (grand.bob ? -3 : 0), "walk", grand.step || 0, grand.f % 2 === 0);
   grand.bob = 0;
 }
 function drawIntroHUD(){
