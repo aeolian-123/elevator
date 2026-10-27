@@ -305,7 +305,7 @@ let camX = 0, camS = 1, camTX = 0, camTS = 1;
 let hang = null, falling = null, junk = [];
 let parts = [], pops = [];
 let bear = {on:false, t:0, next:0};
-let flash = 0, shake = 0;
+let flash = 0, shake = 0, subsidyCard = 0;
 let grand = null;          // {kind, x, y, mode}
 let climbTarget = 0, climbTaps = 0, tapsPerFloor = TAPS_GAME;
 let pend = {phase:0, speed:2.6};
@@ -386,7 +386,8 @@ function landSeg(){
     pops.push({text:"PERFECT!", x:sx(cur), y:segY - 18, t:0, c:"#ffe45c", px:true});
   } else if (wasBonus){
     sfx.land();
-    pops.push({text:"市府補助 +1F", x:sx(cur), y:segY - 8, t:0, c:"#3ff1ff"});
+    pops.push({text:"BONUS!", x:sx(cur), y:segY - 8, t:0, c:"#3ff1ff", px:true});
+    subsidyCard = 1.8;
     burst(sx(cur), segY + 10, 14, true);
   } else {
     sfx.land();
@@ -732,6 +733,24 @@ function drawPopsAndParts(dt){
   });
   ctx.globalAlpha = 1;
 }
+function drawSubsidyCard(){
+  if (subsidyCard <= 0) return;
+  const age = 1.8 - subsidyCard;
+  const pop = Math.min(1, age / 0.15);
+  const a = Math.min(1, subsidyCard / 0.3);
+  const w = 300, h = 58, x = (W - w)/2, y = 60 + (1 - pop)*-20;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = "#0a0920"; ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
+  ctx.fillStyle = "#ff4fd8"; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.fillStyle = "#17143f"; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#3ff1ff"; ctx.lineWidth = 2; ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+  ctx.textAlign = "center";
+  ctx.font = `11px ${PX}`; ctx.fillStyle = "#3ff1ff";
+  ctx.fillText("★ 市府加裝電梯補助 ★", W/2, y + 22);
+  ctx.font = `15px ${ZH}`; ctx.fillStyle = "#ffe45c";
+  ctx.fillText("符合條件者最高補助八成、上限480萬", W/2, y + 44);
+  ctx.restore();
+}
 function drawStar(x, y, r){
   ctx.beginPath();
   for (let i=0;i<10;i++){ const a = i*Math.PI/5 - Math.PI/2, rr = i%2 ? r*0.45 : r; ctx.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr); }
@@ -753,6 +772,7 @@ function update(dt, t){
   camS += (camTS - camS) * Math.min(1, dt*4);
   if (shake > 0) shake = Math.max(0, shake - dt*30);
   if (flash > 0) flash = Math.max(0, flash - dt);
+  if (subsidyCard > 0) subsidyCard = Math.max(0, subsidyCard - dt);
   junk = junk.filter(j => { j.vy += 900*dt; j.x += j.vx*dt; j.y += j.vy*dt; j.rot += j.vr*dt; return j.y < H + 200; });
   if (state !== "play") return;
 
@@ -821,7 +841,7 @@ function render(dt, t){
   drawPopsAndParts(dt);
   ctx.restore();
   if (flash > 0){ ctx.fillStyle = `rgba(255,255,255,${flash*0.5})`; ctx.fillRect(0,0,W,H); }
-  if (state === "play") drawHUD();
+  if (state === "play"){ drawHUD(); drawSubsidyCard(); }
   if (state === "intro") drawIntroHUD();
   if (state === "overview" || state === "result") drawOverviewCaption();
 }
